@@ -96,16 +96,17 @@
             font-weight: 600;
         }
 
-        .form-group input {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             font-size: 1rem;
             transition: border-color 0.3s;
+            font-family: inherit;
         }
 
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
             border-color: var(--primary);
         }
@@ -460,12 +461,18 @@
             opacity: 0.9;
         }
 
-        /* Map Container */
+        /* Map Container - CORREGIDO */
         #map {
             height: 500px;
             width: 100%;
             border-radius: 10px;
             z-index: 1;
+        }
+
+        /* Asegurar que Leaflet se muestre correctamente */
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
         }
 
         .map-controls {
@@ -708,6 +715,12 @@
             .menu-toggle {
                 display: block;
             }
+        }
+
+        /* Custom Leaflet Icons */
+        .custom-div-icon {
+            background: transparent;
+            border: none;
         }
     </style>
 </head>
@@ -1123,11 +1136,13 @@
                 </div>
             </section>
 
-            <!-- MAPA SECTION -->
+            <!-- MAPA SECTION - CORREGIDO -->
             <section id="mapa" class="content-section">
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fas fa-map-marked-alt"></i> Infraestructura de Agua Potable</h3>
+                    </div>
+                    <div class="card-body">
                         <div class="map-controls">
                             <div class="map-filter">
                                 <input type="checkbox" checked id="showTanks">
@@ -1146,8 +1161,6 @@
                                 <label for="showAverias">Mostrar Averías</label>
                             </div>
                         </div>
-                    </div>
-                    <div class="card-body">
                         <div id="map"></div>
                     </div>
                 </div>
@@ -1291,7 +1304,7 @@
                                         <td>Juan Pérez G.</td>
                                         <td>M-1245</td>
                                         <td>1,245</td>
-                                        <td><input type="number" value="1,258" style="width: 100px; padding: 5px;"></td>
+                                        <td><input type="number" value="1258" style="width: 100px; padding: 5px;"></td>
                                         <td>13</td>
                                         <td><span class="status-badge status-paid">Ingresado</span></td>
                                     </tr>
@@ -1464,7 +1477,6 @@
             e.preventDefault();
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('appContainer').classList.add('active');
-            initMap();
         });
 
         // Navigation
@@ -1481,7 +1493,14 @@
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            event.target.closest('.nav-item').classList.add('active');
+            
+            // Find the clicked nav item and make it active
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                if(item.getAttribute('onclick') && item.getAttribute('onclick').includes(sectionId)) {
+                    item.classList.add('active');
+                }
+            });
             
             // Update page title
             const titles = {
@@ -1666,13 +1685,29 @@
             alert('Notificaciones:\n\n• 12 socios con pagos vencidos\n• Avería reportada en Sector Norte\n• Mantenimiento programado: 01/03/2025');
         }
 
-        // Map Initialization
+        // Map Initialization - CORREGIDO
         let map;
+        let mapInitialized = false;
+        
         function initMap() {
-            if (map) return; // Prevent reinitialization
+            // Evitar reinicialización
+            if (mapInitialized) {
+                map.invalidateSize();
+                return;
+            }
             
-            // Initialize map centered on the coordinates from your original code
-            map = L.map('map').setBounds([[-36.71100289791769,-72.45649638245762],[-36.641693503572576,-72.3334395143845]]);
+            // CORRECCIÓN PRINCIPAL: Usar fitBounds correctamente
+            // Las coordenadas deben ser [lat, lng] no [lng, lat]
+            const bounds = [
+                [-36.71100289791769, -72.45649638245762], // Southwest
+                [-36.641693503572576, -72.3334395143845]  // Northeast
+            ];
+            
+            // Crear mapa sin setView inicial, luego aplicar fitBounds
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: true
+            });
             
             // Add base layers
             const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1699,6 +1734,9 @@
             // Add scale control
             L.control.scale().addTo(map);
             
+            // CORRECCIÓN: Aplicar fitBounds DESPUÉS de crear el mapa
+            map.fitBounds(bounds);
+            
             // Sample data points (simulating your GeoJSON data)
             const locations = [
                 {lat: -36.676, lng: -72.395, type: 'tank', name: 'Estanque Principal', icon: 'database'},
@@ -1713,24 +1751,28 @@
             // Custom icons
             const icons = {
                 tank: L.divIcon({
-                    html: '<div style="background: #0066cc; color: white; padding: 8px; border-radius: 50%;"><i class="fas fa-database"></i></div>',
-                    iconSize: [30, 30],
-                    className: 'custom-div-icon'
+                    html: '<div style="background: #0066cc; color: white; padding: 8px; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-database"></i></div>',
+                    iconSize: [35, 35],
+                    className: 'custom-div-icon',
+                    iconAnchor: [17, 17]
                 }),
                 office: L.divIcon({
-                    html: '<div style="background: #28a745; color: white; padding: 8px; border-radius: 50%;"><i class="fas fa-building"></i></div>',
-                    iconSize: [30, 30],
-                    className: 'custom-div-icon'
+                    html: '<div style="background: #28a745; color: white; padding: 8px; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-building"></i></div>',
+                    iconSize: [35, 35],
+                    className: 'custom-div-icon',
+                    iconAnchor: [17, 17]
                 }),
                 plant: L.divIcon({
-                    html: '<div style="background: #ffc107; color: #333; padding: 8px; border-radius: 50%;"><i class="fas fa-industry"></i></div>',
-                    iconSize: [30, 30],
-                    className: 'custom-div-icon'
+                    html: '<div style="background: #ffc107; color: #333; padding: 8px; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-industry"></i></div>',
+                    iconSize: [35, 35],
+                    className: 'custom-div-icon',
+                    iconAnchor: [17, 17]
                 }),
                 connection: L.divIcon({
-                    html: '<div style="background: #dc3545; color: white; padding: 6px; border-radius: 50%; font-size: 0.8rem;"><i class="fas fa-home"></i></div>',
-                    iconSize: [24, 24],
-                    className: 'custom-div-icon'
+                    html: '<div style="background: #dc3545; color: white; padding: 6px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 0.8rem;"><i class="fas fa-home"></i></div>',
+                    iconSize: [28, 28],
+                    className: 'custom-div-icon',
+                    iconAnchor: [14, 14]
                 })
             };
             
@@ -1756,8 +1798,12 @@
                 dashArray: '10, 10'
             }).addTo(map).bindPopup("Tubería Principal Ø110mm");
             
-            // Fit bounds to show all
-            map.fitBounds([[-36.690, -72.410], [-36.665, -72.380]]);
+            // CORRECCIÓN IMPORTANTE: Invalidar tamaño después de que el contenedor es visible
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+            
+            mapInitialized = true;
         }
 
         // Initialize with dashboard
